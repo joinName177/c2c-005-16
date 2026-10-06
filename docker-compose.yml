@@ -1,0 +1,5 @@
+services:
+  voice-meme-studio:
+    build: .
+    ports:
+      - "8105:80"

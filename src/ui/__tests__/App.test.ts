@@ -10,6 +10,7 @@ function deps(options: { denied?: boolean } = {}): StudioDependencies {
     recorder:{isRecording:false,start:async()=>{if(options.denied)throw new DOMException('denied','NotAllowedError')},stop:async()=>new Blob(['voice'],{type:'audio/webm'})},
     analyzer:{analyze:async()=>({duration:2,features:{loudness:.75,dynamics:.55,pitch:.8,zeroCrossing:.62,pauseRatio:.12,tempoVariation:.6}})},
     cropper:{inspect:async()=>({duration:2,needsCrop:false}),crop:async(blob,range)=>({blob,duration:range.end-range.start})},
+    preview:{prepare:async()=>{},play:()=>{},pause:()=>{},resume:()=>{},stop:()=>{}},
     renderer:{render:async()=>new Blob(['cover'],{type:'image/png'})},
     repository:{list:async()=>works,save:async(m)=>{works.push(m)},rename:async()=>{},delete:async(id)=>{const i=works.findIndex(w=>w.id===id);if(i>=0)works.splice(i,1)}},
     share:{share:async()=> 'shared'},
@@ -26,6 +27,16 @@ describe('Voice meme App', () => {
   it('shows a recoverable microphone permission error', async () => {
     const wrapper=mount(App,{props:{dependencies:deps({denied:true})}}); await wrapper.get('[data-testid="record"]').trigger('click'); await Promise.resolve();
     expect(wrapper.text()).toContain('麦克风权限');
+  });
+  it('offers audition, pause and loop controls on the crop stage', async () => {
+    const wrapper=mount(App,{props:{dependencies:deps()}}); await wrapper.get('[data-testid="record"]').trigger('click'); await wrapper.get('[data-testid="stop"]').trigger('click'); await Promise.resolve(); await Promise.resolve();
+    expect(wrapper.text()).toContain('试听听到的就是将要分析和保存的声音');
+    await wrapper.get('[data-testid="preview-toggle"]').trigger('click'); await Promise.resolve();
+    expect(wrapper.get('[data-testid="preview-toggle"]').text()).toContain('暂停试听');
+    await wrapper.get('[data-testid="preview-toggle"]').trigger('click'); await Promise.resolve();
+    expect(wrapper.get('[data-testid="preview-toggle"]').text()).toContain('继续试听');
+    await wrapper.get('[data-testid="preview-loop"]').trigger('click');
+    expect(wrapper.get('[data-testid="preview-loop"]').attributes('aria-pressed')).toBe('true');
   });
   it('creates, labels, edits and saves a work to the gallery', async () => {
     const wrapper=mount(App,{props:{dependencies:deps()}}); await wrapper.get('[data-testid="record"]').trigger('click'); await wrapper.get('[data-testid="stop"]').trigger('click'); await Promise.resolve();

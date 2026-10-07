@@ -26,6 +26,14 @@ export interface VoiceMeme {
   createdAt: string;
 }
 
+/** 试听播放与裁剪编码共用的范围钳制，保证听到的片段就是随后分析和保存的片段 */
+export function clampCropRange(range: CropRange, duration: number): CropRange {
+  const limit = Math.max(0, duration);
+  const start = Math.min(Math.max(0, range.start), limit);
+  const end = Math.min(limit, start + Math.min(10, range.end - range.start));
+  return { start, end: Math.max(start, end) };
+}
+
 export function validateCropRange(range: CropRange, duration: number): string | undefined {
   if (range.start < 0) return '裁剪起点不能小于 0';
   if (range.end <= range.start) return '裁剪终点必须晚于起点';

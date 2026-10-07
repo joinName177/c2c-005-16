@@ -9,6 +9,10 @@ Vue 3 + TypeScript + Vite 纯前端声音创作工具。支持最长 10 秒录�
 - `src/adapters`：MediaRecorder、Web Audio、Canvas、IndexedDB、Web Share 实现
 - `src/ui`：Vue 阶段式工作流和原生 CSS
 
+## 裁剪试听
+
+裁剪页支持片段试听、暂停与循环。试听直接在解码后的原声音上控制播放范围（`AudioBufferSourceNode` 的 offset/duration 与 loopStart/loopEnd），而不是为每次拖动生成独立片段：进入裁剪页只解码一次并缓存，频繁拖动零重复解码，内存中也只有一份 PCM。播放与裁剪编码共用 `clampCropRange` 钳制，因此听到的就是随后分析和保存的内容；循环只改变播放方式，不改变作品时长。改动范围会使当前试听失效，较慢的旧解码结果不会覆盖新选择，离开裁剪页或换音源时旧播放即被结束。
+
 ## 运行
 
 ```bash

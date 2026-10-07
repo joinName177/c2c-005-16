@@ -1,20 +1,20 @@
 import { validateCropRange, type CropRange } from '../core/models';
+import { resolveFrameRange } from '../core/crop-range';
 import type { AudioCropperPort } from '../ports/audio-cropper.port';
 
 export interface DecodedAudio { sampleRate: number; duration: number; channels: Float32Array[] }
 interface Dependencies { decode(blob: Blob): Promise<DecodedAudio> }
-async function browserDecode(blob: Blob): Promise<DecodedAudio> {
+export async function browserDecode(blob: Blob): Promise<DecodedAudio> {
   const context = new AudioContext();
   const buffer = await context.decodeAudioData(await blob.arrayBuffer());
   const result = { sampleRate: buffer.sampleRate, duration: buffer.duration, channels: Array.from({ length: buffer.numberOfChannels }, (_, index) => buffer.getChannelData(index).slice()) };
   await context.close();
   return result;
 }
-function encodeWav(audio: DecodedAudio, range: CropRange) {
-  const start = Math.floor(range.start * audio.sampleRate);
-  const end = Math.floor(range.end * audio.sampleRate);
-  const channels = audio.channels.map((channel) => channel.slice(start, end));
-  const length = end - start;
+function encodeWav(audio: DecodedAudio, frames: { startFrame: number; endFrame: number }) {
+  const { startFrame, endFrame } = frames;
+  const channels = audio.channels.map((channel) => channel.slice(startFrame, endFrame));
+  const length = endFrame - startFrame;
   const buffer = new ArrayBuffer(44 + length * channels.length * 2);
   const view = new DataView(buffer);
   const write = (offset: number, text: string) => [...text].forEach((char, index) => view.setUint8(offset + index, char.charCodeAt(0)));
@@ -28,8 +28,10 @@ export class WebAudioCropperAdapter implements AudioCropperPort {
   async inspect(blob: Blob) { const audio = await this.deps.decode(blob); return { duration: audio.duration, needsCrop: audio.duration > 10 }; }
   async crop(blob: Blob, range: CropRange) {
     const audio = await this.deps.decode(blob);
-    const safe = { start: Math.max(0, range.start), end: Math.min(audio.duration, range.start + Math.min(10, range.end - range.start)) };
+    // 试听与裁剪共用 resolveFrameRange：钳制规则一致，试听内容与保存内容逐帧相同。
+    const frames = resolveFrameRange(range, audio.sampleRate, audio.duration);
+    const safe = { start: frames.startFrame / audio.sampleRate, end: Math.min(frames.endFrame / audio.sampleRate, audio.duration) };
     const error = validateCropRange(safe, audio.duration); if (error) throw new Error(error);
-    return { blob: encodeWav(audio, safe), duration: safe.end - safe.start };
+    return { blob: encodeWav(audio, frames), duration: safe.end - safe.start };
   }
 }
